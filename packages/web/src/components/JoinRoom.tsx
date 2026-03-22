@@ -37,6 +37,17 @@ export function JoinRoom({ roomId, onJoin }: Props) {
       .catch(() => setRoomStatus('expired'))
   }, [roomId])
 
+  // Auto-join after OAuth redirect: if we have open_id in sessionStorage, verify and enter
+  useEffect(() => {
+    if (roomStatus !== 'restricted') return
+    const savedOpenId = sessionStorage.getItem('whisper_open_id')
+    if (!savedOpenId) return
+
+    authenticate(roomId).then((allowed) => {
+      if (allowed) onJoin(nickname)
+    })
+  }, [roomStatus, roomId, authenticate, onJoin, nickname])
+
   const handleJoin = async () => {
     if (roomStatus === 'restricted') {
       const allowed = await authenticate(roomId)
