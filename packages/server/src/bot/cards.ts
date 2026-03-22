@@ -1,5 +1,7 @@
 import type { RoomConfig } from '../types.js'
 
+const GITHUB_URL = 'https://github.com/lhfer/whisper-chat'
+
 /**
  * Wrap a URL to open in Feishu sidebar
  */
@@ -56,6 +58,12 @@ export function buildRoomCard(roomConfig: RoomConfig, roomUrl: string, isRestric
             type: 'primary',
             url: sidebarUrl(roomUrl),
           },
+          {
+            tag: 'button',
+            text: { tag: 'plain_text', content: '🔐 加密原理' },
+            type: 'default',
+            url: `${GITHUB_URL}#%E5%AE%89%E5%85%A8%E6%9E%B6%E6%9E%84`,
+          },
         ],
       },
       {
@@ -85,6 +93,18 @@ export function buildTextCard(title: string, content: string, template = 'blue')
       {
         tag: 'div',
         text: { tag: 'lark_md', content },
+      },
+      { tag: 'hr' },
+      {
+        tag: 'action',
+        actions: [
+          {
+            tag: 'button',
+            text: { tag: 'plain_text', content: '🔐 加密原理' },
+            type: 'default',
+            url: `${GITHUB_URL}#%E5%AE%89%E5%85%A8%E6%9E%B6%E6%9E%84`,
+          },
+        ],
       },
     ],
   }
