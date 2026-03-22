@@ -31,13 +31,30 @@ export function initFeishuBot() {
 export function registerBotRoutes(app: FastifyInstance) {
   if (!client) return
 
+  // Dedup: track processed event IDs to prevent duplicate processing on retries
+  const processedEvents = new Set<string>()
+
   app.post('/api/bot/event', async (req, reply) => {
     const body = req.body as any
-    console.log('[bot] received callback:', JSON.stringify(body).slice(0, 800))
 
     // URL verification challenge
     if (body?.type === 'url_verification') {
       return reply.send({ challenge: body.challenge })
+    }
+
+    // Dedup by event_id
+    const eventId = body?.header?.event_id
+    if (eventId) {
+      if (processedEvents.has(eventId)) {
+        console.log('[bot] duplicate event, skipping:', eventId)
+        return reply.send({ code: 0 })
+      }
+      processedEvents.add(eventId)
+      // Clean up old event IDs (keep last 1000)
+      if (processedEvents.size > 1000) {
+        const first = processedEvents.values().next().value
+        if (first) processedEvents.delete(first)
+      }
     }
 
     // v2.0 event format
@@ -90,14 +107,15 @@ async function handleCommand(ctx: CommandContext) {
       ? parseInt(whisperMatch[1], 10)
       : config.burnDefaultSeconds
 
-    let allowedMembers: string[] | null = null
+    let allowedMembers: string[] | null  = null
     let memberNames: string[] = []
 
     if (chatType === 'group') {
       // Group chat: restrict to group members
       console.log('[bot] group mode: fetching members for chat:', chatId)
-      allowedMembers = await getChatMemberOpenIds(chatId)
-      console.log('[bot] allowed members:', allowedMembers.length)
+      const members = await getChatMemberOpenIds(chatId)
+      allowedMembers = members.length > 0 ? members : []
+      console.log('[bot] allowed members:', members.length, members.length === 0 ? '(permission issue — room locked)' : '')
     } else if (mentions && mentions.length > 0) {
       // Private chat with @mentions: restrict to sender + mentioned users
       const mentionedIds = mentions

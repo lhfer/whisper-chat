@@ -55,6 +55,9 @@ export async function getChatMemberOpenIds(chatId: string): Promise<string[]> {
     } while (pageToken)
   } catch (err) {
     console.error('[auth] Failed to get chat members:', err)
+    // Return empty array — room will be restricted but no one can enter
+    // This is safer than falling back to open room
+    return []
   }
 
   return allIds
@@ -63,22 +66,9 @@ export async function getChatMemberOpenIds(chatId: string): Promise<string[]> {
 export function registerAuthRoutes(app: FastifyInstance) {
   if (!client) return
 
-  // JSSDK config for frontend
-  app.get<{ Querystring: { url: string } }>('/api/auth/jssdk-config', async (req) => {
-    const url = req.query.url
-    const ticket = await getJsapiTicket()
-    const nonceStr = crypto.randomBytes(16).toString('hex')
-    const timestamp = Math.floor(Date.now() / 1000)
-
-    const verifyStr = `jsapi_ticket=${ticket}&noncestr=${nonceStr}&timestamp=${timestamp}&url=${url}`
-    const signature = crypto.createHash('sha1').update(verifyStr).digest('hex')
-
-    return {
-      appId: config.feishuAppId,
-      timestamp,
-      nonceStr,
-      signature,
-    }
+  // Return app_id for OAuth redirect
+  app.get('/api/auth/app-id', async () => {
+    return { appId: config.feishuAppId }
   })
 
   // Exchange auth code for open_id
@@ -87,19 +77,30 @@ export function registerAuthRoutes(app: FastifyInstance) {
     if (!code) return reply.code(400).send({ error: 'Missing code' })
 
     try {
-      // Get app_access_token
-      const tokenResp = await (client as any).auth.appAccessToken.internal({
-        data: {
-          app_id: config.feishuAppId,
-          app_secret: config.feishuAppSecret,
+      // Step 1: Get app_access_token via raw API
+      const tokenResp = await fetch(
+        'https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app_id: config.feishuAppId,
+            app_secret: config.feishuAppSecret,
+          }),
         },
-      })
-      const appToken = tokenResp?.data?.app_access_token
-      if (!appToken) return reply.code(500).send({ error: 'Failed to get app token' })
+      )
+      const tokenData: any = await tokenResp.json()
+      console.log('[auth] app_token response code:', tokenData?.code)
 
-      // Exchange code for user info
+      const appToken = tokenData?.app_access_token
+      if (!appToken) {
+        console.error('[auth] Failed to get app token:', tokenData)
+        return reply.code(500).send({ error: 'Failed to get app token' })
+      }
+
+      // Step 2: Exchange code for user access_token (use v1 non-OIDC endpoint — returns open_id directly)
       const userResp = await fetch(
-        'https://open.feishu.cn/open-apis/authen/v1/oidc/access_token',
+        'https://open.feishu.cn/open-apis/authen/v1/access_token',
         {
           method: 'POST',
           headers: {
@@ -110,12 +111,13 @@ export function registerAuthRoutes(app: FastifyInstance) {
         },
       )
       const userData: any = await userResp.json()
+      console.log('[auth] user response code:', userData?.code, 'open_id:', userData?.data?.open_id)
 
       if (userData?.data?.open_id) {
         return { open_id: userData.data.open_id }
       }
 
-      console.error('[auth] OAuth response:', userData)
+      console.error('[auth] OAuth failed:', JSON.stringify(userData))
       return reply.code(401).send({ error: 'Auth failed' })
     } catch (err) {
       console.error('[auth] Login error:', err)

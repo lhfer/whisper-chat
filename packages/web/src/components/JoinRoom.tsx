@@ -14,7 +14,15 @@ export function JoinRoom({ roomId, onJoin }: Props) {
   const [roomStatus, setRoomStatus] = useState<'loading' | 'ok' | 'expired' | 'restricted'>('loading')
   const { auth, authenticate } = useFeishuAuth()
 
+  // Restore room key from sessionStorage after OAuth redirect (redirect loses the #fragment)
   useEffect(() => {
+    if (!window.location.hash) {
+      const savedKey = sessionStorage.getItem('whisper_room_key')
+      if (savedKey) {
+        window.location.hash = savedKey.startsWith('#') ? savedKey.slice(1) : savedKey
+        sessionStorage.removeItem('whisper_room_key')
+      }
+    }
     const key = getRoomKeyFromUrl()
     if (!key) setHasKey(false)
   }, [])
