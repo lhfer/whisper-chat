@@ -1,0 +1,29 @@
+services:
+  whisper:
+    build: .
+    container_name: whisper-chat
+    restart: unless-stopped
+    ports:
+      - "4000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - FEISHU_APP_ID=${FEISHU_APP_ID}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET}
+      - APP_URL=${APP_URL:-https://your-domain.com}
+      - ROOM_DEFAULT_TTL=86400
+      - BURN_DEFAULT_SECONDS=30
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - default
+      - caddy_net
+
+networks:
+  caddy_net:
+    external: true
+    name: deploy_default

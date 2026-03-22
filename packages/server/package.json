@@ -1,0 +1,28 @@
+{
+  "name": "@whisper/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/static": "^9.0.0",
+    "@fastify/websocket": "^11.2.0",
+    "@larksuiteoapi/node-sdk": "^1.59.0",
+    "dotenv": "^16.5.0",
+    "fastify": "^5.8.2",
+    "ioredis": "^5.6.1",
+    "nanoid": "^5.1.5",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
